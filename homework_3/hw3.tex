@@ -1,0 +1,279 @@
+\documentclass[12pt]{article}
+\usepackage[UTF8]{ctex}
+\usepackage{amsmath,amssymb}
+\usepackage{geometry}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{booktabs}
+\usepackage{array}
+\geometry{margin=1in}
+
+\newcommand{\E}{\mathbb{E}}
+
+\begin{document}
+
+\title{信息技术基础（2026 年春季）\\ 作业 \#3 \\ 线性神经网络、MDP 与启发式搜索}
+\author{}
+\date{}
+\maketitle
+
+%==============================================================
+\section*{问题 1：线性激活神经网络（30 分）}
+
+每个神经元采用线性激活函数
+\[
+g(x)\;=\;c + b\cdot\frac{1}{n}\sum_{i=1}^{n} W_i\,x_i,
+\]
+其中 $b,c$ 为固定实数，$n$ 为该神经元的入链数。
+约定输入 $x = (x_0,x_1,\dots,x_n)$ 中 $x_0\equiv 1$ 充当偏置端（与 $W_0$ 配对），不影响题目形式。
+
+%--------------------------------------------------------------
+\subsection*{(1) 单个神经元：误差函数与梯度更新规则}
+
+\paragraph{预测输出.}
+\[
+\hat{y}\;=\;g(\mathbf{x})\;=\;c+\frac{b}{n}\sum_{i=1}^{n}W_i\,x_i.
+\]
+
+\paragraph{平方误差函数.}
+\[
+\boxed{\;
+E(\mathbf{W})\;=\;\tfrac{1}{2}\bigl(y-\hat{y}\bigr)^{2}.
+\;}
+\]
+（系数 $\tfrac12$ 仅为求导方便，不改变极值点。）
+
+\paragraph{梯度.}
+由于 $\hat{y}$ 关于 $W_k$ 是线性的，
+\[
+\frac{\partial \hat{y}}{\partial W_k}\;=\;\frac{b}{n}\,x_k,
+\qquad
+\frac{\partial E}{\partial W_k}\;=\;-(y-\hat{y})\cdot\frac{b}{n}\,x_k.
+\]
+
+\paragraph{梯度下降权重更新规则.}
+学习率 $\eta>0$，
+\[
+\boxed{\;
+W_k \;\leftarrow\; W_k - \eta\,\frac{\partial E}{\partial W_k}
+\;=\; W_k + \eta\,\frac{b}{n}\,(y-\hat{y})\,x_k,\qquad k=1,\dots,n.
+\;}
+\]
+对 $W_0$（偏置权重）取 $x_0=1$，更新形式相同。
+
+%--------------------------------------------------------------
+\subsection*{(2) 一层隐藏层网络等价于无隐藏层网络}
+
+\paragraph{隐藏层第 $j$ 个单元（入度 $n$）.}
+\[
+h_j \;=\; c + \frac{b}{n}\sum_{k=1}^{n}w_{k,j}\,x_k,\qquad j=1,\dots,m.
+\]
+
+\paragraph{输出单元（入度 $m$）.}
+\[
+o \;=\; c + \frac{b}{m}\sum_{j=1}^{m}W_j\,h_j.
+\]
+
+\paragraph{展开为关于 $w_{k,j},W_j,x$ 的表达式.}
+代入 $h_j$ 并利用线性性：
+\[
+\begin{aligned}
+o &= c + \frac{b}{m}\sum_{j=1}^{m}W_j\!\left(c + \frac{b}{n}\sum_{k=1}^{n}w_{k,j}\,x_k\right)\\[4pt]
+  &= \underbrace{\,c + \frac{b\,c}{m}\sum_{j=1}^{m}W_j\,}_{=:A,\;\text{与 }x\text{ 无关}}
+   \;+\;
+     \underbrace{\,\frac{b^{\,2}}{m\,n}\sum_{k=1}^{n}\!\left(\sum_{j=1}^{m}W_j\,w_{k,j}\right)\!x_k\,}_{x\text{ 的线性项}}.
+\end{aligned}
+\]
+记
+\[
+A\;=\;c+\frac{b\,c}{m}\sum_{j=1}^{m}W_j,
+\qquad
+B_k\;=\;\frac{b^{\,2}}{m\,n}\sum_{j=1}^{m}W_j\,w_{k,j},
+\]
+则
+\[
+\boxed{\;
+o \;=\; A \;+\; \sum_{k=1}^{n} B_k\,x_k.
+\;}
+\]
+
+\paragraph{结论：仿射函数可由单层线性网络精确表示.}
+$o$ 是输入 $x$ 的仿射函数。考虑只含一个输出神经元、无隐藏层的网络
+\[
+o' \;=\; c + \frac{b}{n}\!\left(W'_0 + \sum_{k=1}^{n}W'_k\,x_k\right),
+\]
+（$x_0\equiv 1$ 为偏置端）。设 $b\neq 0$，取
+\[
+W'_k\;=\;\frac{b}{m}\sum_{j=1}^{m}W_j\,w_{k,j}\quad(k=1,\dots,n),
+\qquad
+W'_0\;=\;\frac{n}{b}(A-c)\;=\;\frac{n\,c}{m}\sum_{j=1}^{m}W_j.
+\]
+则代入直接验证：
+\begin{itemize}
+  \item 线性项：$\displaystyle\frac{b}{n}W'_k=\frac{b^{2}}{m\,n}\sum_j W_j w_{k,j}=B_k$；
+  \item 常数项：$\displaystyle c+\frac{b}{n}W'_0=c+(A-c)=A$。
+\end{itemize}
+因此 $o'\equiv o$ 对一切输入成立。
+若 $b=0$，则 $o\equiv c$ 与 $x$ 无关，单层网络（任意权重）恒输出 $c$，结论平凡成立。
+$\blacksquare$
+
+\paragraph{直觉.}
+仿射映射的复合仍为仿射映射；线性激活神经元的任意层数堆叠都不会扩大假设空间——这正是深度网络必须使用非线性激活函数的根本原因。
+
+\newpage
+%==============================================================
+\section*{问题 2：马尔可夫决策过程（30 分）}
+
+约定 $T(s,a,s')=\Pr[s_{t+1}=s'\mid s_t=s,a_t=a]$；$R(s,a,s')$ 为转移即时奖励；折扣因子 $\gamma\in(0,1]$。
+
+%--------------------------------------------------------------
+\subsection*{(1) 总折扣奖励 $V$}
+
+题目以 $t=1$ 为序列起点，但累计要求「$t=0\to+\infty$」，因此第一笔奖励的折扣指数取 $0$：
+\[
+\boxed{\;
+V \;=\; \sum_{t=0}^{+\infty}\gamma^{t}\,R(s_{t+1},a_{t+1},s_{t+2})
+   \;=\; \sum_{t=1}^{+\infty}\gamma^{t-1}\,R(s_{t},a_{t},s_{t+1}).
+\;}
+\]
+展开形式：
+$V=R(s_1,a_1,s_2)+\gamma R(s_2,a_2,s_3)+\gamma^{2} R(s_3,a_3,s_4)+\cdots$。
+
+%--------------------------------------------------------------
+\subsection*{(2) 值函数 $V^{\pi}(s_0)$}
+
+策略 $\pi$ 给定下，从 $s_0$ 出发的期望累计折扣奖励：
+\[
+\boxed{\;
+V^{\pi}(s_0)
+\;=\; \E_{\pi}\!\left[\,
+\sum_{t=0}^{\infty}\gamma^{t}\,R(s_{t+1},a_{t+1},s_{t+2})\;\Big|\;s_1=s_0
+\,\right].
+\;}
+\]
+期望对策略 $\pi$ 选择的（可能随机的）动作以及由 $T$ 给出的状态转移联合取得。
+
+\paragraph{等价递归形式（Bellman 期望方程）.}
+\[
+V^{\pi}(s)\;=\;\sum_{a\in A}\pi(a\mid s)\sum_{s'\in S} T(s,a,s')\!\left[R(s,a,s')+\gamma\,V^{\pi}(s')\right].
+\]
+
+%--------------------------------------------------------------
+\subsection*{(3) 值迭代（Value Iteration）求解 MDP}
+
+\paragraph{目标.} 求最优值函数 $V^{*}$ 满足 Bellman 最优方程
+\[
+V^{*}(s)\;=\;\max_{a\in A}\sum_{s'\in S} T(s,a,s')\!\left[R(s,a,s')+\gamma\,V^{*}(s')\right].
+\]
+
+\paragraph{算法步骤.}
+\begin{enumerate}
+\item \textbf{初始化}：对所有 $s\in S$，置 $V_{0}(s)=0$（也可任意有限初值）。
+\item \textbf{迭代}（Bellman 最优备份）：对 $k=0,1,2,\dots$ 与每个 $s\in S$，
+\[
+V_{k+1}(s)\;\leftarrow\;\max_{a\in A}\sum_{s'\in S} T(s,a,s')\!\left[R(s,a,s')+\gamma\,V_{k}(s')\right].
+\]
+\item \textbf{收敛判据}：当 $\bigl\|V_{k+1}-V_{k}\bigr\|_{\infty}<\varepsilon$（预设容差）时停止，记 $V^{*}\approx V_{K}$。
+\item \textbf{导出最优策略}：
+\[
+\pi^{*}(s)\;=\;\arg\max_{a\in A}\sum_{s'\in S} T(s,a,s')\!\left[R(s,a,s')+\gamma\,V^{*}(s')\right].
+\]
+\end{enumerate}
+
+\paragraph{收敛性.}
+当 $\gamma<1$，Bellman 最优算子在最大模 $\|\cdot\|_{\infty}$ 下是 $\gamma$-收缩映射；由 Banach 不动点定理得 $V_{k}\to V^{*}$，且
+\[
+\|V_{k}-V^{*}\|_{\infty}\;\le\;\gamma^{k}\,\|V_{0}-V^{*}\|_{\infty},
+\]
+即指数（线性）速率收敛。$\gamma=1$ 时需额外条件（例如终止状态）保证良定义。
+
+\newpage
+%==============================================================
+\section*{问题 3：启发式搜索（40 分）}
+
+\textbf{可采纳启发式}：$h(s)\le h^{*}(s)$ 对所有状态 $s$ 成立，其中 $h^{*}(s)$ 为从 $s$ 到目标的最低真实代价（永不高估）。
+设 $h_{1},h_{2}$ 均可采纳。
+
+%--------------------------------------------------------------
+\subsection*{(1) 哪些组合保证可采纳？（25 分）}
+
+\begin{table}[h]
+\centering
+\renewcommand{\arraystretch}{1.45}
+\begin{tabular}{>{\centering\arraybackslash}m{0.21\linewidth}c m{0.55\linewidth}}
+\toprule
+\textbf{组合} & \textbf{是否保证} & \multicolumn{1}{c}{\textbf{论证}}\\
+\midrule
+$h_1+h_2$            & \ding{55} & 反例：$h_1=h_2=h^{*}\Rightarrow h_1+h_2=2h^{*}>h^{*}$（$h^{*}>0$ 时高估）。\\
+$h_1\times h_2$      & \ding{55} & 反例：$h_1=h_2=h^{*}=5\Rightarrow h_1 h_2=25>5$。\\
+$\max(h_1,h_2)$      & \ding{51} & $\max(h_1,h_2)\le\max(h^{*},h^{*})=h^{*}$。\\
+$\min(h_1,h_2)$      & \ding{51} & $\min(h_1,h_2)\le h_1\le h^{*}$。\\
+$\alpha h_1+(1-\alpha)h_2$\newline $\alpha\in[0,1]$ & \ding{51} & 凸组合：$\le \alpha h^{*}+(1-\alpha)h^{*}=h^{*}$。\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\noindent
+\textbf{答案}：保证可采纳的是 \textbf{(c)、(d)、(e)}。
+
+\paragraph{补充说明.}
+$\max(h_1,h_2)$ 是 A* 中常用的「pointwise 取大」技巧：在保持可采纳的前提下尽可能紧（dominating heuristic），通常能减少节点扩展数。
+$h_1+h_2$ 不可采纳，但若两个启发式来自\emph{互不相交的子目标}（即不重复计算同一段代价），则它们的和仍可采纳——这就是 disjoint pattern database 的依据。
+
+%--------------------------------------------------------------
+\subsection*{(2) 判断题（15 分）}
+
+\textbf{题目.} 考虑使用一致代价搜索（UCS）计算得到的最优路径。如果给每一步代价加上一个正常数，最优路径\emph{可能}发生改变。
+
+\textbf{判断.} 正确（True）。
+
+\paragraph{推理.}
+UCS 选择路径总代价 $\displaystyle\mathrm{cost}(P)=\sum_{e\in P}\mathrm{cost}(e)$ 最小的路径 $P$。给每条边加 $c>0$ 后，
+\[
+\mathrm{cost}'(P)\;=\;\mathrm{cost}(P)+c\cdot|P|,
+\]
+其中 $|P|$ 为路径的边数。由于不同路径的 $|P|$ 通常不同，\textbf{额外增量 $c|P|$ 与路径长度耦合}：原本被「单边代价低但步数多」的路径所最优的情形，可能被「步数少」的路径反超。
+
+\paragraph{显式反例.}
+从起点 $s$ 到目标 $g$ 有两条候选路径：
+\[
+P_A\!:\;\text{$3$ 条边，每条代价 $4$}\;\Longrightarrow\;\mathrm{cost}(P_A)=12,
+\qquad
+P_B\!:\;\text{$1$ 条边，代价 $13$}\;\Longrightarrow\;\mathrm{cost}(P_B)=13.
+\]
+原始 UCS 选 $P_A$（$12<13$）。
+加 $c=1$ 后：
+\[
+\mathrm{cost}'(P_A)=3\times 5=15,\qquad
+\mathrm{cost}'(P_B)=14.
+\]
+新 UCS 选 $P_B$（$14<15$）。最优路径已改变。$\blacksquare$
+
+\paragraph{直觉.}
+UCS 的最优性对\emph{乘正常数}缩放是不变的（不改变排名），但对\emph{加正常数不是不变的}——加常数引入与路径长度耦合的额外项，等价于人为加入「按边数计费」的偏置，使最优解倾向更短（更少边）的路径。
+
+\newpage
+%==============================================================
+\section*{答案速览}
+
+\begin{table}[h]
+\centering
+\renewcommand{\arraystretch}{1.6}
+\begin{tabular}{cl}
+\toprule
+\textbf{题号} & \textbf{关键结果}\\
+\midrule
+1(1) & $E(\mathbf{W})=\tfrac12(y-\hat{y})^{2}$\\
+1(1) & $W_k\leftarrow W_k+\eta\,\dfrac{b}{n}(y-\hat{y})\,x_k$\\
+1(2) & $o = A+\sum_{k=1}^{n}B_k\,x_k$，其中 $A=c+\dfrac{b\,c}{m}\sum_j W_j$，$B_k=\dfrac{b^{2}}{m\,n}\sum_j W_j\,w_{k,j}$\\
+1(2) & 单层等价权重：$W'_k=\dfrac{b}{m}\sum_j W_j\,w_{k,j}$，$W'_0=\dfrac{n}{b}(A-c)$\\
+2(1) & $V=\sum_{t=0}^{\infty}\gamma^{t}R(s_{t+1},a_{t+1},s_{t+2})$\\
+2(2) & $V^{\pi}(s_0)=\E_{\pi}\!\left[\sum_{t=0}^{\infty}\gamma^{t}R(s_{t+1},a_{t+1},s_{t+2})\mid s_1=s_0\right]$\\
+2(3) & $V_{k+1}(s)=\max_a\sum_{s'} T(s,a,s')[R(s,a,s')+\gamma V_k(s')]$；$\gamma$-收缩，速率 $\gamma^k$\\
+3(1) & 保证可采纳：$\max(h_1,h_2)$、$\min(h_1,h_2)$、$\alpha h_1+(1-\alpha)h_2$，即 \textbf{(c)、(d)、(e)}\\
+3(2) & \textbf{True}；反例：$P_A=3\times 4=12$，$P_B=13$；加 $c=1$ 后 $15>14$\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\end{document}
