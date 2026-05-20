@@ -1,0 +1,362 @@
+\documentclass[12pt]{article}
+\usepackage[UTF8]{ctex}
+\usepackage{amsmath,amssymb}
+\usepackage{geometry}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{booktabs}
+\geometry{margin=1in}
+
+\newcommand{\atantwo}{\operatorname{atan2}}
+
+\begin{document}
+
+\title{EE5346 -- 自主机器人导航（2026年春季）\\ 作业\#5\\ MLE 与扩展卡尔曼滤波器}
+\author{}
+\date{}
+\maketitle
+
+%==============================================================
+\section*{问题 1：最大似然估计 (MLE)}
+
+测量方程为
+\[
+z_k = x + n_k,\qquad n_k \sim \mathcal{N}(0,\sigma^2),\qquad k=1,2,\dots,N,
+\]
+其中 $x$ 为待估计的机器人位置（未知常数），$n_k$ 为零均值高斯噪声（题目中的 $\mathcal{N}(0,\sigma)$ 中 $\sigma$ 视为标准差，方差为 $\sigma^2$），$N$ 个测量相互独立。由 $z_k\mid x \sim \mathcal{N}(x,\sigma^2)$，单测量的概率密度函数为
+\[
+p(z_k\mid x)=\frac{1}{\sqrt{2\pi\sigma^2}}\exp\!\left[-\frac{(z_k-x)^2}{2\sigma^2}\right].
+\]
+
+\subsection*{似然函数 $L(x)=p(Z\mid x)$}
+
+由各测量独立，联合 PDF 等于各 PDF 的乘积：
+\[
+L(x)=\prod_{k=1}^{N}p(z_k\mid x)
+=\left(\frac{1}{\sqrt{2\pi\sigma^2}}\right)^{\!N}
+\exp\!\left[-\frac{1}{2\sigma^2}\sum_{k=1}^{N}(z_k-x)^2\right].
+\]
+即
+\[
+\boxed{\;
+L(x)=(2\pi\sigma^2)^{-N/2}\exp\!\left[-\frac{1}{2\sigma^2}\sum_{k=1}^{N}(z_k-x)^2\right].
+\;}
+\]
+
+\subsection*{负对数似然 $\mathcal{L}(x)=-\ln L(x)$}
+
+利用 $\ln(ab)=\ln a+\ln b$ 与 $\ln(\mathrm{e}^c)=c$：
+\[
+\boxed{\;
+\mathcal{L}(x)=\frac{N}{2}\ln(2\pi\sigma^2)+\frac{1}{2\sigma^2}\sum_{k=1}^{N}(z_k-x)^2.
+\;}
+\]
+第一项与 $x$ 无关，因此
+\[
+x^{*}=\arg\min_{x}\mathcal{L}(x)\;\equiv\;\arg\min_{x}\sum_{k=1}^{N}(z_k-x)^2,
+\]
+即在高斯噪声下，MLE 等价于最小二乘问题。
+
+\subsection*{求解 MLE $x^{*}$}
+
+对 $\mathcal{L}(x)$ 求导并令其为零：
+\[
+\frac{d\mathcal{L}}{dx}=\frac{1}{\sigma^2}\sum_{k=1}^{N}(x-z_k)=0
+\;\Longrightarrow\;
+Nx-\sum_{k=1}^{N}z_k=0.
+\]
+二阶导数 $\dfrac{d^{2}\mathcal{L}}{dx^{2}}=\dfrac{N}{\sigma^{2}}>0$，确认为极小值。因此
+\[
+\boxed{\;x^{*}=\frac{1}{N}\sum_{k=1}^{N}z_k.\;}
+\]
+即\textbf{在 i.i.d.\ 高斯噪声下，机器人位置的 MLE 等于所有测量值的样本均值}。
+
+\subsection*{数值结果}
+
+代入 $N=3$，$z_1=3,\;z_2=4,\;z_3=7$：
+\[
+\boxed{\;x^{*}=\frac{3+4+7}{3}=\frac{14}{3}\approx 4.667.\;}
+\]
+
+\newpage
+%==============================================================
+\section*{问题 2：教材式 (8.32) 的推导}
+
+考虑非线性运动模型（加性过程噪声形式）
+\[
+\mathbf{x}_k=f(\mathbf{x}_{k-1},\mathbf{u}_k)+\mathbf{w}_k,
+\qquad \mathbf{w}_k\sim\mathcal{N}(\mathbf{0},\mathbf{R}_k),
+\]
+其中 $\mathbf{w}_k$ 与历史状态独立。上一时刻的后验为
+\[
+\mathbf{x}_{k-1}\sim\mathcal{N}(\hat{\mathbf{x}}_{k-1},\hat{\mathbf{P}}_{k-1}).
+\]
+
+\subsection*{在估计点处一阶泰勒展开}
+
+由于 $f$ 非线性，EKF 在 $\hat{\mathbf{x}}_{k-1}$ 处线性化：
+\[
+f(\mathbf{x}_{k-1},\mathbf{u}_k)\approx
+f(\hat{\mathbf{x}}_{k-1},\mathbf{u}_k)
++\mathbf{F}\,(\mathbf{x}_{k-1}-\hat{\mathbf{x}}_{k-1}),
+\qquad
+\mathbf{F}=\left.\frac{\partial f}{\partial \mathbf{x}}\right|_{\hat{\mathbf{x}}_{k-1},\mathbf{u}_k}.
+\]
+代入状态方程：
+\begin{equation}
+\mathbf{x}_k\approx
+f(\hat{\mathbf{x}}_{k-1},\mathbf{u}_k)
++\mathbf{F}\,(\mathbf{x}_{k-1}-\hat{\mathbf{x}}_{k-1})
++\mathbf{w}_k.
+\tag{$\star$}
+\end{equation}
+
+\subsection*{预测均值 $\tilde{\mathbf{x}}_k$}
+
+由\textbf{均值（向量函数期望）的定义} $\tilde{\mathbf{x}}_k=E[\mathbf{x}_k]$，对 $(\star)$ 两边取期望并利用线性性：
+\[
+\tilde{\mathbf{x}}_k=
+f(\hat{\mathbf{x}}_{k-1},\mathbf{u}_k)
++\mathbf{F}\underbrace{E[\mathbf{x}_{k-1}-\hat{\mathbf{x}}_{k-1}]}_{=\mathbf{0}}
++\underbrace{E[\mathbf{w}_k]}_{=\mathbf{0}}.
+\]
+故
+\[
+\boxed{\;\tilde{\mathbf{x}}_k=f(\hat{\mathbf{x}}_{k-1},\mathbf{u}_k).\;}
+\]
+
+\subsection*{预测协方差 $\tilde{\mathbf{P}}_k$}
+
+记误差 $\delta\mathbf{x}_{k-1}=\mathbf{x}_{k-1}-\hat{\mathbf{x}}_{k-1}$。由 $(\star)$ 及上一节结果：
+\[
+\mathbf{x}_k-\tilde{\mathbf{x}}_k=\mathbf{F}\,\delta\mathbf{x}_{k-1}+\mathbf{w}_k.
+\]
+按\textbf{协方差矩阵的定义}
+$\tilde{\mathbf{P}}_k=E\!\left[(\mathbf{x}_k-\tilde{\mathbf{x}}_k)(\mathbf{x}_k-\tilde{\mathbf{x}}_k)^\mathrm{T}\right]$
+展开：
+\[
+\tilde{\mathbf{P}}_k=
+E\!\left[
+\mathbf{F}\delta\mathbf{x}_{k-1}\delta\mathbf{x}_{k-1}^\mathrm{T}\mathbf{F}^\mathrm{T}
++\mathbf{F}\delta\mathbf{x}_{k-1}\mathbf{w}_k^\mathrm{T}
++\mathbf{w}_k\delta\mathbf{x}_{k-1}^\mathrm{T}\mathbf{F}^\mathrm{T}
++\mathbf{w}_k\mathbf{w}_k^\mathrm{T}
+\right].
+\]
+由于 $\mathbf{w}_k$ 与 $\mathbf{x}_{k-1}$ 独立，
+$E[\delta\mathbf{x}_{k-1}\mathbf{w}_k^\mathrm{T}]=\mathbf{0}$，交叉项消失；又
+\[
+E[\delta\mathbf{x}_{k-1}\delta\mathbf{x}_{k-1}^\mathrm{T}]=\hat{\mathbf{P}}_{k-1},
+\qquad
+E[\mathbf{w}_k\mathbf{w}_k^\mathrm{T}]=\mathbf{R}_k,
+\]
+因此
+\[
+\boxed{\;
+\tilde{\mathbf{P}}_k=\mathbf{F}\,\hat{\mathbf{P}}_{k-1}\,\mathbf{F}^\mathrm{T}+\mathbf{R}_k.
+\;}
+\]
+
+\subsection*{关于非加性噪声的说明}
+
+若噪声以 $f(\mathbf{x}_{k-1},\mathbf{u}_k,\mathbf{w}_k)$ 方式进入模型（如本作业第 3 题中过程噪声乘以输入耦合矩阵），则需引入噪声雅可比
+\[
+\mathbf{G}=\left.\frac{\partial f}{\partial \mathbf{w}}\right|_{\hat{\mathbf{x}}_{k-1},\mathbf{u}_k,\mathbf{0}},
+\]
+此时预测协方差为
+\[
+\tilde{\mathbf{P}}_k=\mathbf{F}\,\hat{\mathbf{P}}_{k-1}\,\mathbf{F}^\mathrm{T}
++\mathbf{G}\,\mathbf{Q}\,\mathbf{G}^\mathrm{T}.
+\]
+教材式 (8.32) 通过将 $\mathbf{G}\mathbf{Q}\mathbf{G}^\mathrm{T}$ 整体记为 $\mathbf{R}_k$，与上述加性形式一致。
+
+\newpage
+%==============================================================
+\section*{问题 3：EKF 雅可比矩阵 $\mathbf{F}$ 与 $\mathbf{H}$}
+
+记状态、输入、地标分别为
+\[
+\mathbf{x}_k=\begin{bmatrix}x_k\\ y_k\\ \theta_k\end{bmatrix},\quad
+\mathbf{u}_k=\begin{bmatrix}v_k\\ \omega_k\end{bmatrix},\quad
+\mathbf{y}^l=\begin{bmatrix}x_l\\ y_l\end{bmatrix}.
+\]
+
+\subsection*{运动模型 $\Rightarrow$ 雅可比 $\mathbf{F}$}
+
+题目给定的运动模型为
+\[
+\mathbf{x}_k = \mathbf{x}_{k-1}
++ \Delta t
+\begin{bmatrix}
+\cos\theta_{k-1} & 0\\
+\sin\theta_{k-1} & 0\\
+0 & 1
+\end{bmatrix}
+(\mathbf{u}_k+\mathbf{w}_k),
+\qquad \mathbf{w}_k\sim\mathcal{N}(\mathbf{0},\mathbf{Q}).
+\]
+取 $\mathbf{w}_k=\mathbf{0}$ 用于求 $\mathbf{F}$，逐分量展开：
+\[
+\begin{aligned}
+x_k       &= x_{k-1} + \Delta t\,v_k\cos\theta_{k-1},\\
+y_k       &= y_{k-1} + \Delta t\,v_k\sin\theta_{k-1},\\
+\theta_k  &= \theta_{k-1} + \Delta t\,\omega_k.
+\end{aligned}
+\]
+
+\subsubsection*{一阶近似形式}
+
+在 $(\hat{\mathbf{x}}_{k-1},\mathbf{u}_k)$ 处展开：
+\[
+f(\mathbf{x}_{k-1},\mathbf{u}_k)\approx
+f(\hat{\mathbf{x}}_{k-1},\mathbf{u}_k)
++\mathbf{F}\,(\mathbf{x}_{k-1}-\hat{\mathbf{x}}_{k-1}).
+\]
+
+\subsubsection*{求 $\mathbf{F}=\partial f/\partial \mathbf{x}_{k-1}$}
+
+逐项求偏导：
+\begin{align*}
+\frac{\partial x_k}{\partial x_{k-1}} &= 1, &
+\frac{\partial x_k}{\partial y_{k-1}} &= 0, &
+\frac{\partial x_k}{\partial \theta_{k-1}} &= -\Delta t\,v_k\sin\theta_{k-1},\\[4pt]
+\frac{\partial y_k}{\partial x_{k-1}} &= 0, &
+\frac{\partial y_k}{\partial y_{k-1}} &= 1, &
+\frac{\partial y_k}{\partial \theta_{k-1}} &= \Delta t\,v_k\cos\theta_{k-1},\\[4pt]
+\frac{\partial \theta_k}{\partial x_{k-1}} &= 0, &
+\frac{\partial \theta_k}{\partial y_{k-1}} &= 0, &
+\frac{\partial \theta_k}{\partial \theta_{k-1}} &= 1.
+\end{align*}
+
+因此
+\[
+\boxed{\;
+\mathbf{F}=
+\begin{bmatrix}
+1 & 0 & -\Delta t\,v_k\sin\hat{\theta}_{k-1}\\[4pt]
+0 & 1 & \;\;\;\Delta t\,v_k\cos\hat{\theta}_{k-1}\\[4pt]
+0 & 0 & 1
+\end{bmatrix}.
+\;}
+\]
+矩阵在估计点 $\hat{\theta}_{k-1}$ 与里程计输入 $v_k$ 处求值。
+
+\subsection*{测量模型 $\Rightarrow$ 雅可比 $\mathbf{H}$}
+
+\subsubsection*{中间变量}
+
+定义
+\[
+\Delta x = x_l-x_k-d\cos\theta_k,\qquad
+\Delta y = y_l-y_k-d\sin\theta_k,
+\]
+\[
+r=\sqrt{\Delta x^2+\Delta y^2},\qquad r^2=\Delta x^2+\Delta y^2.
+\]
+测量模型为
+\[
+h(\mathbf{x}_k,\mathbf{y}^l)=
+\begin{bmatrix}
+r\\[3pt]
+\atantwo(\Delta y,\Delta x)-\theta_k
+\end{bmatrix}.
+\]
+
+\subsubsection*{一阶近似形式}
+
+在预测位姿 $\tilde{\mathbf{x}}_k$ 处展开：
+\[
+h(\mathbf{x}_k,\mathbf{y}^l)\approx
+h(\tilde{\mathbf{x}}_k,\mathbf{y}^l)
++\mathbf{H}\,(\mathbf{x}_k-\tilde{\mathbf{x}}_k).
+\]
+
+\subsubsection*{辅助偏导}
+
+\begin{align*}
+\frac{\partial \Delta x}{\partial x_k}&=-1, &
+\frac{\partial \Delta y}{\partial y_k}&=-1,\\[4pt]
+\frac{\partial \Delta x}{\partial \theta_k}&=d\sin\theta_k, &
+\frac{\partial \Delta y}{\partial \theta_k}&=-d\cos\theta_k.
+\end{align*}
+
+\subsubsection*{(a) 距离 $r$ 部分}
+
+\[
+\frac{\partial r}{\partial x_k}=\frac{1}{r}\!\left(\Delta x\cdot(-1)+\Delta y\cdot 0\right)=-\frac{\Delta x}{r},
+\qquad
+\frac{\partial r}{\partial y_k}=-\frac{\Delta y}{r},
+\]
+\[
+\frac{\partial r}{\partial \theta_k}
+=\frac{1}{r}\!\left(\Delta x\cdot d\sin\theta_k+\Delta y\cdot(-d\cos\theta_k)\right)
+=\frac{d}{r}\,(\Delta x\sin\theta_k-\Delta y\cos\theta_k).
+\]
+
+\subsubsection*{(b) 方位 $\phi=\atantwo(\Delta y,\Delta x)-\theta_k$ 部分}
+
+利用
+\[
+\frac{\partial\,\atantwo(v,u)}{\partial u}=-\frac{v}{u^2+v^2},\qquad
+\frac{\partial\,\atantwo(v,u)}{\partial v}=\frac{u}{u^2+v^2},
+\]
+通过链式法则得：
+\begin{align*}
+\frac{\partial\phi}{\partial x_k}
+&=-\frac{\Delta y}{r^2}\cdot(-1)+\frac{\Delta x}{r^2}\cdot 0
+=\frac{\Delta y}{r^2},\\[6pt]
+\frac{\partial\phi}{\partial y_k}
+&=-\frac{\Delta y}{r^2}\cdot 0+\frac{\Delta x}{r^2}\cdot(-1)
+=-\frac{\Delta x}{r^2},\\[6pt]
+\frac{\partial\phi}{\partial\theta_k}
+&=-\frac{\Delta y}{r^2}\cdot d\sin\theta_k
++\frac{\Delta x}{r^2}\cdot(-d\cos\theta_k)-1\\[4pt]
+&=-\frac{d}{r^2}\!\left(\Delta x\cos\theta_k+\Delta y\sin\theta_k\right)-1.
+\end{align*}
+
+\subsubsection*{最终 $\mathbf{H}$（$2\times 3$ 矩阵）}
+
+\[
+\boxed{\;
+\mathbf{H}=
+\begin{bmatrix}
+-\dfrac{\Delta x}{r} &
+-\dfrac{\Delta y}{r} &
+\;\;\dfrac{d}{r}\!\left(\Delta x\sin\theta_k-\Delta y\cos\theta_k\right)\\[14pt]
+\;\;\dfrac{\Delta y}{r^2} &
+-\dfrac{\Delta x}{r^2} &
+-\dfrac{d}{r^2}\!\left(\Delta x\cos\theta_k+\Delta y\sin\theta_k\right)-1
+\end{bmatrix},
+\;}
+\]
+其中
+\[
+\Delta x=x_l-x_k-d\cos\theta_k,\quad
+\Delta y=y_l-y_k-d\sin\theta_k,\quad
+r=\sqrt{\Delta x^2+\Delta y^2}.
+\]
+所有项在预测位姿 $\tilde{\mathbf{x}}_k=(\tilde{x}_k,\tilde{y}_k,\tilde{\theta}_k)$ 与已知地标 $\mathbf{y}^l$ 处求值。
+
+\newpage
+%==============================================================
+\section*{答案速览}
+
+\begin{table}[h]
+\centering
+\renewcommand{\arraystretch}{1.5}
+\begin{tabular}{cl}
+\toprule
+\textbf{题号} & \textbf{关键结果}\\
+\midrule
+1 & $L(x)=(2\pi\sigma^2)^{-N/2}\exp\!\left[-\dfrac{1}{2\sigma^2}\sum_k(z_k-x)^2\right]$ \\
+1 & $\mathcal{L}(x)=\dfrac{N}{2}\ln(2\pi\sigma^2)+\dfrac{1}{2\sigma^2}\sum_k(z_k-x)^2$ \\
+1 & $x^{*}=\dfrac{1}{N}\sum_k z_k=\dfrac{14}{3}\approx 4.667$ \\
+2 & $\tilde{\mathbf{x}}_k=f(\hat{\mathbf{x}}_{k-1},\mathbf{u}_k)$ \\
+2 & $\tilde{\mathbf{P}}_k=\mathbf{F}\hat{\mathbf{P}}_{k-1}\mathbf{F}^\mathrm{T}+\mathbf{R}_k$ \\
+3 & $\mathbf{F}=\begin{bmatrix}1&0&-\Delta t\,v_k\sin\hat{\theta}_{k-1}\\0&1&\Delta t\,v_k\cos\hat{\theta}_{k-1}\\0&0&1\end{bmatrix}$ \\
+3 & $\mathbf{H}=\begin{bmatrix}-\Delta x/r & -\Delta y/r & (d/r)(\Delta x\sin\theta_k-\Delta y\cos\theta_k)\\ \Delta y/r^2 & -\Delta x/r^2 & -(d/r^2)(\Delta x\cos\theta_k+\Delta y\sin\theta_k)-1\end{bmatrix}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\end{document}
